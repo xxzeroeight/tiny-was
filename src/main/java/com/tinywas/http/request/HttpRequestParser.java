@@ -13,6 +13,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class HttpRequestParser {
+    private static final int MAX_LINE_LENGTH = 8 * 1024;
+    private static final int MAX_BODY_SIZE = 10 * 1024 * 1024;
+
     public HttpRequest parse(InputStream inputStream) throws IOException {
         BufferedInputStream in = new BufferedInputStream(inputStream);
 
@@ -69,6 +72,7 @@ public class HttpRequestParser {
         }
 
         if (length < 0) throw new BadRequestException("Content length must not be negative");
+        if (length > MAX_BODY_SIZE) throw new BadRequestException("Content length exceeds maximum size");
 
         byte[] bodyBytes = new byte[length];
         int totalRead = 0;
@@ -89,7 +93,12 @@ public class HttpRequestParser {
         int b;
         while ((b = in.read()) != -1) {
             if (b == '\n') break;
-            if (b != '\r') out.write(b);
+            if (b != '\r') {
+                out.write(b);
+                if (out.size() > MAX_LINE_LENGTH) {
+                    throw new BadRequestException("Request line or header is too long");
+                }
+            }
         }
 
         if (b == -1 && out.size() == 0) return null;
