@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -39,7 +40,7 @@ public class HttpResponseTest {
 
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         new HttpResponseWriter().write(response, outputStream);
-        String result = outputStream.toString();
+        String result = outputStream.toString(StandardCharsets.UTF_8);
 
         assertAll(
                 () -> assertTrue(result.startsWith("HTTP/1.1 200 OK\r\n")),
@@ -58,7 +59,7 @@ public class HttpResponseTest {
 
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         new HttpResponseWriter().write(response, outputStream);
-        String result = outputStream.toString();
+        String result = outputStream.toString(StandardCharsets.UTF_8);
 
         assertTrue(result.startsWith("HTTP/1.1 404 Not Found\r\n"));
     }

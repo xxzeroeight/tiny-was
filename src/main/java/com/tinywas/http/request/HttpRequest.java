@@ -3,7 +3,6 @@ package com.tinywas.http.request;
 import com.tinywas.http.HttpMethod;
 import com.tinywas.http.HttpVersion;
 
-import java.util.Collections;
 import java.util.Map;
 
 public class HttpRequest {
@@ -18,7 +17,7 @@ public class HttpRequest {
         this.method = method;
         this.path = path;
         this.version = version;
-        this.headers = Collections.unmodifiableMap(headers);
+        this.headers = Map.copyOf(headers);
         this.body = body;
     }
 

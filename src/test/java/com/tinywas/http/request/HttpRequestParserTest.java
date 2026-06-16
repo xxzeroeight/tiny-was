@@ -100,4 +100,41 @@ class HttpRequestParserTest {
 
         assertEquals("text/html", request.getHeader("content-type"));
     }
+
+    @Test
+    @DisplayName("Content-Length는 바이트 수 기준으로 멀티바이트 문자를 정확히 파싱한다")
+    void parseBodyWithMultiByteCharacters() throws IOException {
+        String body = "안녕"; // UTF-8로 6바이트, 2글자
+        byte[] bodyBytes = body.getBytes(StandardCharsets.UTF_8);
+
+        String raw = "POST /submit HTTP/1.1\r\n" +
+                "Host: localhost:8080\r\n" +
+                "Content-Length: " + bodyBytes.length + "\r\n" +
+                "\r\n" + body;
+
+        HttpRequest request = parser.parse(toInputStream(raw));
+
+        assertEquals(body, request.getBody());
+    }
+
+    @Test
+    @DisplayName("Content-Length가 숫자가 아니면 BadRequestException을 던진다")
+    void throwExceptionWhenContentLengthIsNotNumber() {
+        String raw = "POST /submit HTTP/1.1\r\nHost: localhost\r\nContent-Length: abc\r\n\r\n";
+        assertThrows(BadRequestException.class, () -> parser.parse(toInputStream(raw)));
+    }
+
+    @Test
+    @DisplayName("Content-Length가 음수이면 BadRequestException을 던진다")
+    void throwExceptionWhenContentLengthIsNegative() {
+        String raw = "POST /submit HTTP/1.1\r\nHost: localhost\r\nContent-Length: -5\r\n\r\n";
+        assertThrows(BadRequestException.class, () -> parser.parse(toInputStream(raw)));
+    }
+
+    @Test
+    @DisplayName("선언된 Content-Length보다 적은 데이터가 오면 BadRequestException을 던진다")
+    void throwExceptionWhenBodyIsShorterThanContentLength() {
+        String raw = "POST /submit HTTP/1.1\r\nHost: localhost\r\nContent-Length: 100\r\n\r\nshort";
+        assertThrows(BadRequestException.class, () -> parser.parse(toInputStream(raw)));
+    }
 }

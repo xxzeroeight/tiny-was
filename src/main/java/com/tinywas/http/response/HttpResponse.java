@@ -2,6 +2,7 @@ package com.tinywas.http.response;
 
 import com.tinywas.http.HttpVersion;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -15,7 +16,7 @@ public class HttpResponse {
     private HttpResponse(Builder builder) {
         this.version = builder.version;
         this.status = builder.status;
-        this.headers = Collections.unmodifiableMap(builder.headers);
+        this.headers = Collections.unmodifiableMap(new LinkedHashMap<>(builder.headers));
         this.body = builder.body;
     }
 
@@ -50,7 +51,8 @@ public class HttpResponse {
 
         public Builder body(String body) {
             this.body = body;
-            this.headers.put("content-length", String.valueOf(body.length()));
+            this.headers.put("content-length",
+                    String.valueOf(body.getBytes(StandardCharsets.UTF_8).length));
             return this;
         }
 
