@@ -1,6 +1,7 @@
 package com.tinywas.server;
 
 import com.tinywas.connection.HttpConnection;
+import com.tinywas.handler.Router;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -11,12 +12,14 @@ import java.util.concurrent.TimeUnit;
 
 public class HttpServer {
     private final ServerConfig config;
+    private final Router router;
     private volatile boolean running = false;
     private volatile ServerSocket serverSocket;
     private final CountDownLatch startedSignal = new CountDownLatch(1);
 
-    public HttpServer(ServerConfig config) {
+    public HttpServer(ServerConfig config, Router router) {
         this.config = config;
+        this.router = router;
     }
 
     public void start() throws IOException {
@@ -29,7 +32,7 @@ public class HttpServer {
             while (running) {
                 try {
                     Socket socket = ss.accept();
-                    new Thread(new HttpConnection(socket)).start();
+                    new Thread(new HttpConnection(socket, router)).start();
                 } catch (SocketException e) {
                     if (!running) break;
                     throw e;
