@@ -11,7 +11,7 @@ public class HttpResponse {
     private final HttpVersion version;
     private final HttpStatus status;
     private final Map<String, String> headers;
-    private final String body;
+    private final byte[] body;
 
     private HttpResponse(Builder builder) {
         this.version = builder.version;
@@ -23,7 +23,7 @@ public class HttpResponse {
     public HttpVersion getVersion() { return version; }
     public HttpStatus getStatus() { return status; }
     public Map<String, String> getHeaders() { return headers; }
-    public String getBody() { return body; }
+    public byte[] getBody() { return body; }
 
     public static Builder builder(HttpStatus status) {
         return new Builder(status);
@@ -33,7 +33,7 @@ public class HttpResponse {
         private HttpVersion version = HttpVersion.HTTP_1_1;
         private final HttpStatus status;
         private final Map<String, String> headers = new LinkedHashMap<>();
-        private String body = "";
+        private byte[] body = new byte[0];
 
         private Builder(HttpStatus status) {
             this.status = status;
@@ -49,11 +49,14 @@ public class HttpResponse {
             return this;
         }
 
-        public Builder body(String body) {
+        public Builder body(byte[] body) {
             this.body = body;
-            this.headers.put("content-length",
-                    String.valueOf(body.getBytes(StandardCharsets.UTF_8).length));
+            this.headers.put("content-length", String.valueOf(body.length));
             return this;
+        }
+
+        public Builder body(String body) {
+            return body(body.getBytes(StandardCharsets.UTF_8));
         }
 
         public HttpResponse build() {

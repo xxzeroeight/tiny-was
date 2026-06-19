@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -24,7 +25,7 @@ public class HttpResponseTest {
         assertAll(
                 () -> assertEquals(HttpStatus.OK, response.getStatus()),
                 () -> assertEquals(HttpVersion.HTTP_1_1, response.getVersion()),
-                () -> assertEquals("Hello, World!", response.getBody()),
+                () -> assertArrayEquals("Hello, World!".getBytes(StandardCharsets.UTF_8), response.getBody()),
                 () -> assertEquals("13", response.getHeaders().get("content-length")),
                 () -> assertEquals("close", response.getHeaders().get("connection"))
         );

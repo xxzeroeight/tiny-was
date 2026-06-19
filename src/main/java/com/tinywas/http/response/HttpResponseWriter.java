@@ -24,9 +24,8 @@ public class HttpResponseWriter {
         sb.append(CRLF);
 
         // 4. 바디
-        sb.append(response.getBody());
-
-        outputStream.write(sb.toString().getBytes(StandardCharsets.UTF_8));
+        outputStream.write(sb.toString().getBytes(StandardCharsets.UTF_8)); // 헤더
+        outputStream.write(response.getBody()); // 바디
         outputStream.flush();
     }
 }
