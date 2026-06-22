@@ -19,9 +19,9 @@ public class Router {
     public void register(HttpMethod method, String path, RequestHandler handler) {
         String key = key(method, path);
 
-        // 중복 등록 방지
-        if (routes.containsKey(key)) {
-            throw new IllegalStateException("Route already registered");
+        RequestHandler previous = routes.putIfAbsent(key, handler);
+        if (previous != null) {
+            throw new IllegalStateException("Router already registered");
         }
 
         routes.put(key, handler);

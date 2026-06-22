@@ -45,6 +45,10 @@ public class ServerConfig {
         }
 
         public Builder staticRoot(String path) {
+            if (path == null || path.isBlank()) {
+                throw new IllegalArgumentException("staticRoot must not be null or blank");
+            }
+
             this.staticRoot = Paths.get(path);
             return this;
         }

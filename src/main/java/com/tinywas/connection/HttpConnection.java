@@ -32,7 +32,7 @@ public class HttpConnection implements Runnable {
             writer.write(response, socket.getOutputStream());
         } catch (HttpException e) {
             sendErrorResponse(e.getStatus());
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             sendErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR);
         } finally {
             closeQuietly();

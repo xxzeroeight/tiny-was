@@ -1,6 +1,8 @@
 package com.tinywas.handler;
 
+import com.tinywas.exception.MethodNotAllowedException;
 import com.tinywas.exception.NotFoundException;
+import com.tinywas.http.HttpMethod;
 import com.tinywas.http.request.HttpRequest;
 import com.tinywas.http.response.HttpResponse;
 import com.tinywas.http.response.HttpStatus;
@@ -8,6 +10,7 @@ import com.tinywas.http.response.HttpStatus;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 
 public class StaticFileHandler implements RequestHandler {
@@ -27,6 +30,11 @@ public class StaticFileHandler implements RequestHandler {
             "txt", "text/plain"
     );
 
+    private static final List<HttpMethod> ALLOWED_METHODS = List.of(
+            HttpMethod.GET,
+            HttpMethod.HEAD
+    );
+
     private final Path staticRoot;
 
     public StaticFileHandler(Path staticRoot) {
@@ -35,6 +43,10 @@ public class StaticFileHandler implements RequestHandler {
 
     @Override
     public HttpResponse handle(HttpRequest request) throws IOException {
+        if (!ALLOWED_METHODS.contains(request.getMethod())) {
+            throw new MethodNotAllowedException("GET, HEAD");
+        }
+
         Path resolved = resolveSafely(request.getPath());
 
         if (!Files.exists(resolved) || !Files.isRegularFile(resolved)) {

@@ -23,7 +23,7 @@ public class TinyWAS {
 
         router.register(HttpMethod.GET, "/hello", request ->
                 HttpResponse.builder(HttpStatus.OK)
-                        .header("Content-Type", "text/plain")
+                        .header("Content-Type", "text/plain; charset=utf-8")
                         .body("Hello from tiny-was! " + request.getMethod() + " " + request.getPath())
                         .build());
 

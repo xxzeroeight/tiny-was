@@ -1,5 +1,6 @@
 package com.tinywas.handler;
 
+import com.tinywas.exception.MethodNotAllowedException;
 import com.tinywas.exception.NotFoundException;
 import com.tinywas.http.HttpMethod;
 import com.tinywas.http.HttpVersion;
@@ -52,6 +53,17 @@ class StaticFileHandlerTest {
 
         assertArrayEquals("<h1>Hello</h1>".getBytes(StandardCharsets.UTF_8), response.getBody());
         assertEquals("text/html", response.getHeaders().get("content-type"));
+    }
+
+    @Test
+    @DisplayName("GET 외 메서드로 정적 파일 요청 시 MethodNotAllowedException을 던진다")
+    void throwExceptionWhenMethodIsNotAllowed() {
+        HttpRequest postRequest = new HttpRequest(
+                HttpMethod.POST, "/index.html", HttpVersion.HTTP_1_1,
+                Collections.emptyMap(), "");
+
+        assertThrows(MethodNotAllowedException.class,
+                () -> handler.handle(postRequest));
     }
 
     @Test

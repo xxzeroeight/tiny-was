@@ -27,10 +27,17 @@ class ServerConfigTest {
     }
 
     @Test
-    @DisplayName("staticRoot이 존재하지 않으면 빌드 시점에 예외를 던진다")
-    void throwExceptionWhenStaticRootDoesNotExist() {
+    @DisplayName("staticRoot가 빈 문자열이면 즉시 예외를 던진다")
+    void throwExceptionWhenStaticRootIsBlank() {
         assertThrows(IllegalArgumentException.class,
-                () -> ServerConfig.builder().staticRoot("/no/such/directory").build());
+                () -> ServerConfig.builder().staticRoot(""));
+    }
+
+    @Test
+    @DisplayName("staticRoot가 null이면 즉시 예외를 던진다")
+    void throwExceptionWhenStaticRootIsNull() {
+        assertThrows(IllegalArgumentException.class,
+                () -> ServerConfig.builder().staticRoot(null));
     }
 
     @Test
