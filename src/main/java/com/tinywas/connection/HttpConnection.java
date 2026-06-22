@@ -31,18 +31,19 @@ public class HttpConnection implements Runnable {
             HttpResponse response = router.route(request);
             writer.write(response, socket.getOutputStream());
         } catch (HttpException e) {
-            sendErrorResponse(e.getStatus());
+            sendErrorResponse(e);
         } catch (IOException | RuntimeException e) {
-            sendErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR);
+            sendErrorResponse(new HttpException(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error"));
         } finally {
             closeQuietly();
         }
     }
 
-    private void sendErrorResponse(HttpStatus status) {
+    private void sendErrorResponse(HttpException e) {
         try {
-            HttpResponse response = HttpResponse.builder(status).build();
-            writer.write(response, socket.getOutputStream());
+            HttpResponse.Builder builder = HttpResponse.builder(e.getStatus());
+            e.getHeaders().forEach(builder::header);
+            writer.write(builder.build(), socket.getOutputStream());
         } catch (IOException ignored) {}
     }
 

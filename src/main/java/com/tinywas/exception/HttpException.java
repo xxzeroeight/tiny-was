@@ -16,8 +16,8 @@ public class HttpException extends RuntimeException {
 
     public HttpException(HttpStatus status, String message, Map<String, String> headers) {
         super(message);
-        this.status = Objects.requireNonNull(status);
-        this.headers = Collections.unmodifiableMap(headers);
+        this.status = Objects.requireNonNull(status, "status must not be null");
+        this.headers = Map.copyOf(Objects.requireNonNull(headers, "headers must not be null"));
     }
 
     public HttpStatus getStatus() {
