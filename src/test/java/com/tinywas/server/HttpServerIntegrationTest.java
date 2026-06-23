@@ -16,9 +16,17 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -29,39 +37,67 @@ public class HttpServerIntegrationTest {
     private int port;
 
     @BeforeEach
-    void setUp(@TempDir Path tempStaticRoot) throws InterruptedException, IOException {
+    void setUp(@TempDir Path tempStaticRoot) throws Exception {
         Files.writeString(tempStaticRoot.resolve("hello.txt"), "static content");
 
-        ServerConfig config = ServerConfig.builder()
-                .port(0)
-                .staticRoot(tempStaticRoot.toString())
-                .build();
-
-        StaticFileHandler staticFileHandler = new StaticFileHandler(config.getStaticRoot());
+        StaticFileHandler staticFileHandler = new StaticFileHandler(tempStaticRoot);
         Router router = new Router(staticFileHandler);
         router.register(HttpMethod.GET, "/hello", request ->
-                HttpResponse.builder(HttpStatus.OK).body("Hello from tiny-was!").build());
+                HttpResponse.builder(HttpStatus.OK)
+                        .body("hello".getBytes())
+                        .build()
+        );
 
-        server = new HttpServer(config, router);
+        ServerConfig serverConfig = ServerConfig.builder().port(0).build();
+        ThreadPoolConfig threadPoolConfig = ThreadPoolConfig.builder().corePoolSize(50).build();
+        server = new HttpServer(serverConfig, threadPoolConfig, router);
 
         Thread serverThread = new Thread(() -> {
-            try {
-                server.start();
-            } catch (IOException ignored) {
-            }
+            try { server.start(); } catch (IOException ignored) {}
         });
         serverThread.setDaemon(true);
         serverThread.start();
 
-        boolean started = server.awaitStart(2, TimeUnit.SECONDS);
-        assertTrue(started, "서버가 제한 시간 내에 시작되지 않음");
-
+        assertTrue(server.awaitStart(5, TimeUnit.SECONDS));
         port = server.getPort();
     }
 
     @AfterEach
     void tearDown() {
         server.stop();
+    }
+
+    @Test
+    @DisplayName("동시 요청 100개를 모두 처리하면 200 응답을 반환한다")
+    void 동시_요청_100개_모두_200_응답() throws Exception {
+        int concurrency = 100;
+        HttpClient client = HttpClient.newBuilder()
+                .executor(Executors.newFixedThreadPool(concurrency))
+                .build();
+
+        List<Future<java.net.http.HttpResponse<String>>> futures = new ArrayList<>();
+        ExecutorService testPool = Executors.newFixedThreadPool(concurrency);
+
+        for (int i = 0; i < concurrency; i++) {
+            futures.add(testPool.submit(() ->
+                    client.send(
+                            HttpRequest.newBuilder()
+                                    .uri(URI.create("http://localhost:" + port + "/hello"))
+                                    .GET()
+                                    .build(),
+                            java.net.http.HttpResponse.BodyHandlers.ofString()
+                    )
+            ));
+        }
+
+        int successCount = 0;
+        for (Future<java.net.http.HttpResponse<String>> f : futures) {
+            java.net.http.HttpResponse<String> response = f.get(10, TimeUnit.SECONDS);
+            if (response.statusCode() == 200) successCount++;
+        }
+
+        testPool.shutdown();
+        assertEquals(concurrency, successCount, "모든 동시 요청이 200 응답을 받아야 합니다");
     }
 
     @Test
