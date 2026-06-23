@@ -69,14 +69,16 @@ public class HttpServerIntegrationTest {
 
     @Test
     @DisplayName("동시 요청 100개를 모두 처리하면 200 응답을 반환한다")
-    void 동시_요청_100개_모두_200_응답() throws Exception {
+    void concurrentRequestsAllReturn200() throws Exception {
         int concurrency = 100;
+
+        ExecutorService clientExecutor = Executors.newFixedThreadPool(concurrency);
+        ExecutorService testPool = Executors.newFixedThreadPool(concurrency);
         HttpClient client = HttpClient.newBuilder()
-                .executor(Executors.newFixedThreadPool(concurrency))
+                .executor(clientExecutor)
                 .build();
 
         List<Future<java.net.http.HttpResponse<String>>> futures = new ArrayList<>();
-        ExecutorService testPool = Executors.newFixedThreadPool(concurrency);
 
         for (int i = 0; i < concurrency; i++) {
             futures.add(testPool.submit(() ->
@@ -97,6 +99,10 @@ public class HttpServerIntegrationTest {
         }
 
         testPool.shutdown();
+        clientExecutor.shutdown();
+        assertTrue(testPool.awaitTermination(5, TimeUnit.SECONDS));
+        assertTrue(clientExecutor.awaitTermination(5, TimeUnit.SECONDS));
+
         assertEquals(concurrency, successCount, "모든 동시 요청이 200 응답을 받아야 합니다");
     }
 
