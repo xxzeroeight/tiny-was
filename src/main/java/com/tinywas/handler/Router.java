@@ -23,8 +23,6 @@ public class Router {
         if (previous != null) {
             throw new IllegalStateException("Router already registered");
         }
-
-        routes.put(key, handler);
     }
 
     public HttpResponse route(HttpRequest request) throws IOException {

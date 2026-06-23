@@ -7,6 +7,7 @@ import com.tinywas.http.response.HttpResponse;
 import com.tinywas.http.response.HttpStatus;
 import com.tinywas.server.HttpServer;
 import com.tinywas.server.ServerConfig;
+import com.tinywas.server.ThreadPoolConfig;
 
 import java.io.IOException;
 
@@ -27,7 +28,7 @@ public class TinyWAS {
                         .body("Hello from tiny-was! " + request.getMethod() + " " + request.getPath())
                         .build());
 
-        HttpServer server = new HttpServer(config, router);
+        HttpServer server = new HttpServer(config, ThreadPoolConfig.builder().build(), router);
         server.start();
     }
 }

@@ -8,21 +8,30 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class HttpServer {
     private final ServerConfig config;
+    private final ThreadPoolConfig threadPoolConfig;
     private final Router router;
+
     private volatile boolean running = false;
     private volatile ServerSocket serverSocket;
+    private volatile ExecutorService executor;
+
     private final CountDownLatch startedSignal = new CountDownLatch(1);
 
-    public HttpServer(ServerConfig config, Router router) {
+    public HttpServer(ServerConfig config, ThreadPoolConfig threadPoolConfig, Router router) {
         this.config = config;
+        this.threadPoolConfig = threadPoolConfig;
         this.router = router;
     }
 
     public void start() throws IOException {
+        executor = Executors.newFixedThreadPool(threadPoolConfig.getCorePoolSize());
+
         try (ServerSocket ss = new ServerSocket(config.getPort(), config.getBacklog())) {
             this.serverSocket = ss;
             running = true;
@@ -32,7 +41,7 @@ public class HttpServer {
             while (running) {
                 try {
                     Socket socket = ss.accept();
-                    new Thread(new HttpConnection(socket, router)).start();
+                    executor.submit(new HttpConnection(socket, router));
                 } catch (SocketException e) {
                     if (!running) break;
                     throw e;
@@ -40,6 +49,7 @@ public class HttpServer {
             }
         } finally {
             this.serverSocket = null;
+            shutdownExecutor();
         }
     }
 
@@ -50,6 +60,21 @@ public class HttpServer {
             try {
                 ss.close();
             } catch (IOException ignored) {}
+        }
+    }
+
+    private void shutdownExecutor() {
+        ExecutorService es = this.executor;
+        if (es == null) return;
+
+        es.shutdown();
+        try {
+            if (!es.awaitTermination(threadPoolConfig.getShutdownTimeoutSeconds(), TimeUnit.SECONDS)) {
+                es.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            es.shutdownNow();
+            Thread.currentThread().interrupt();
         }
     }
 
