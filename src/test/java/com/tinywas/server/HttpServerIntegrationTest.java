@@ -50,7 +50,8 @@ public class HttpServerIntegrationTest {
 
         ServerConfig serverConfig = ServerConfig.builder().port(0).build();
         ThreadPoolConfig threadPoolConfig = ThreadPoolConfig.builder().corePoolSize(50).build();
-        server = new HttpServer(serverConfig, threadPoolConfig, router);
+        KeepAliveConfig keepAliveConfig = KeepAliveConfig.builder().build();
+        server = new HttpServer(serverConfig, threadPoolConfig, keepAliveConfig, router);
 
         Thread serverThread = new Thread(() -> {
             try { server.start(); } catch (IOException ignored) {}
