@@ -107,7 +107,6 @@ public class HttpConnection implements Runnable {
     private void closeQuietly() {
         try {
             socket.close();
-        } catch (IOException ignored) {
-        }
+        } catch (IOException ignored) {}
     }
 }
