@@ -35,6 +35,11 @@ public class TinyWAS {
                 router
         );
 
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            System.out.println("[tiny-was] Shutting down...");
+            server.stop();
+        }));
+
         server.start();
     }
 }
