@@ -14,6 +14,7 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.util.Arrays;
 
 public class HttpConnection implements Runnable {
     private final Socket socket;
@@ -67,7 +68,9 @@ public class HttpConnection implements Runnable {
     private boolean isKeepAlive(HttpRequest request) {
         String connection = request.getHeader("connection");
         if (connection != null) {
-            return connection.equalsIgnoreCase("keep-alive");
+            return Arrays.stream(connection.split(","))
+                    .map(String::trim)
+                    .noneMatch(token -> token.equalsIgnoreCase("close"));
         }
 
         return request.getVersion() == HttpVersion.HTTP_1_1;

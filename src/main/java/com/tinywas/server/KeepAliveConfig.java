@@ -35,7 +35,7 @@ public class KeepAliveConfig {
         }
 
         public Builder timeoutMillis(int timeoutMillis) {
-            if (timeoutMillis < 0) {
+            if (timeoutMillis < 1) {
                 throw new IllegalArgumentException("timeoutMillis must be non-negative");
             }
 

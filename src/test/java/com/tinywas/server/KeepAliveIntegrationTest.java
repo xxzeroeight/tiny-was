@@ -17,9 +17,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.Socket;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -45,21 +42,7 @@ class KeepAliveIntegrationTest {
                         .build()
         );
 
-        ServerConfig serverConfig = ServerConfig.builder().port(0).build();
-        ThreadPoolConfig threadPoolConfig = ThreadPoolConfig.builder().build();
-        KeepAliveConfig keepAliveConfig = KeepAliveConfig.builder()
-                .maxRequests(100)
-                .timeoutMillis(5000)
-                .build();
-
-        server = new HttpServer(serverConfig, threadPoolConfig, keepAliveConfig, router);
-
-        Thread serverThread = new Thread(() -> {
-            try { server.start(); } catch (IOException ignored) {}
-        });
-        serverThread.setDaemon(true);
-        serverThread.start();
-
+        server = buildServer(tempStaticRoot, KeepAliveConfig.builder().build(), router);
         assertTrue(server.awaitStart(5, TimeUnit.SECONDS));
         port = server.getPort();
     }
@@ -72,34 +55,32 @@ class KeepAliveIntegrationTest {
     @Test
     @DisplayName("하나의 연결에서 여러 요청을 처리하면 응답 헤더에 Connection: keep-alive가 포함된다")
     void shouldKeepAliveOnMultipleRequests() throws Exception {
-        // Java HttpClient는 기본적으로 HTTP/1.1 Keep-Alive를 사용
-        HttpClient client = HttpClient.newBuilder()
-                .version(HttpClient.Version.HTTP_1_1)
-                .build();
+        try (Socket socket = new Socket("localhost", port)) {
+            OutputStream out = socket.getOutputStream();
+            InputStream in = socket.getInputStream();
 
-        int requestCount = 5;
-        for (int i = 0; i < requestCount; i++) {
-            java.net.http.HttpResponse<String> response = client.send(
-                    HttpRequest.newBuilder()
-                            .uri(URI.create("http://localhost:" + port + "/hello"))
-                            .GET()
-                            .build(),
-                    java.net.http.HttpResponse.BodyHandlers.ofString()
-            );
-            assertEquals(200, response.statusCode());
-            assertEquals("keep-alive", response.headers().firstValue("connection").orElse(""));
+            for (int i = 0; i < 5; i++) {
+                String request =
+                        "GET /hello HTTP/1.1\r\n" +
+                                "Host: localhost\r\n" +
+                                "Connection: keep-alive\r\n" +
+                                "\r\n";
+                out.write(request.getBytes(StandardCharsets.UTF_8));
+                out.flush();
+
+                String connectionHeader = readConnectionHeader(in);
+                assertEquals("keep-alive", connectionHeader,
+                        (i + 1) + "번째 요청 응답에 Connection: keep-alive가 포함되어야 합니다");
+            }
         }
     }
 
     @Test
     @DisplayName("maxRequests 초과 시 마지막 응답 헤더에 Connection: close가 포함된다")
-    void shouldCloseWhenMaxRequestsExceeded() throws Exception {
-        KeepAliveConfig limitConfig = KeepAliveConfig.builder()
-                .maxRequests(3)
-                .timeoutMillis(5000)
-                .build();
+    void shouldCloseWhenMaxRequestsExceeded(@TempDir Path tempStaticRoot) throws Exception {
+        Files.writeString(tempStaticRoot.resolve("hello.txt"), "static content");
 
-        StaticFileHandler staticFileHandler = new StaticFileHandler(Path.of("static"));
+        StaticFileHandler staticFileHandler = new StaticFileHandler(tempStaticRoot);
         Router router = new Router(staticFileHandler);
         router.register(HttpMethod.GET, "/hello", request ->
                 HttpResponse.builder(HttpStatus.OK)
@@ -107,38 +88,36 @@ class KeepAliveIntegrationTest {
                         .build()
         );
 
-        ServerConfig serverConfig = ServerConfig.builder().port(0).build();
-        HttpServer limitServer = new HttpServer(
-                serverConfig,
-                ThreadPoolConfig.builder().build(),
-                limitConfig,
-                router
-        );
+        KeepAliveConfig limitConfig = KeepAliveConfig.builder()
+                .maxRequests(3)
+                .timeoutMillis(5000)
+                .build();
 
-        Thread serverThread = new Thread(() -> {
-            try { limitServer.start(); } catch (IOException ignored) {}
-        });
-        serverThread.setDaemon(true);
-        serverThread.start();
-        assertTrue(limitServer.awaitStart(5, TimeUnit.SECONDS));
-        int limitPort = limitServer.getPort();
+        HttpServer limitServer = buildServer(tempStaticRoot, limitConfig, router);
 
         try {
-            HttpClient client = HttpClient.newBuilder()
-                    .version(HttpClient.Version.HTTP_1_1)
-                    .build();
+            assertTrue(limitServer.awaitStart(5, TimeUnit.SECONDS));
+            int limitPort = limitServer.getPort();
 
-            java.net.http.HttpResponse<String> response = null;
-            for (int i = 0; i < 3; i++) {
-                response = client.send(
-                        HttpRequest.newBuilder()
-                                .uri(URI.create("http://localhost:" + limitPort + "/hello"))
-                                .GET()
-                                .build(),
-                        java.net.http.HttpResponse.BodyHandlers.ofString()
-                );
+            try (Socket socket = new Socket("localhost", limitPort)) {
+                OutputStream out = socket.getOutputStream();
+                InputStream in = socket.getInputStream();
+
+                String connectionHeader = null;
+                for (int i = 0; i < 3; i++) {
+                    String request =
+                            "GET /hello HTTP/1.1\r\n" +
+                                    "Host: localhost\r\n" +
+                                    "Connection: keep-alive\r\n" +
+                                    "\r\n";
+                    out.write(request.getBytes(StandardCharsets.UTF_8));
+                    out.flush();
+
+                    connectionHeader = readConnectionHeader(in);
+                }
+                assertEquals("close", connectionHeader,
+                        "마지막 요청 응답에 Connection: close가 포함되어야 합니다");
             }
-            assertEquals("close", response.headers().firstValue("connection").orElse(""));
         } finally {
             limitServer.stop();
         }
@@ -151,7 +130,6 @@ class KeepAliveIntegrationTest {
             OutputStream out = socket.getOutputStream();
             InputStream in = socket.getInputStream();
 
-            // Connection: close 헤더를 직접 작성
             String request =
                     "GET /hello HTTP/1.1\r\n" +
                             "Host: localhost\r\n" +
@@ -160,16 +138,34 @@ class KeepAliveIntegrationTest {
             out.write(request.getBytes(StandardCharsets.UTF_8));
             out.flush();
 
-            BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
-            boolean hasCloseHeader = false;
-            String line;
-            while ((line = reader.readLine()) != null && !line.isBlank()) {
-                if (line.equalsIgnoreCase("connection: close")) {
-                    hasCloseHeader = true;
-                }
-            }
-
-            assertTrue(hasCloseHeader, "응답 헤더에 Connection: close가 포함되어야 합니다");
+            assertEquals("close", readConnectionHeader(in),
+                    "응답 헤더에 Connection: close가 포함되어야 합니다");
         }
+    }
+
+    private String readConnectionHeader(InputStream in) throws IOException {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
+        String connectionHeader = "";
+        String line;
+        while ((line = reader.readLine()) != null && !line.isBlank()) {
+            if (line.toLowerCase().startsWith("connection:")) {
+                connectionHeader = line.substring("connection:".length()).trim();
+            }
+        }
+        return connectionHeader;
+    }
+
+    private HttpServer buildServer(Path staticRoot, KeepAliveConfig keepAliveConfig, Router router) {
+        ServerConfig serverConfig = ServerConfig.builder().port(0).build();
+        ThreadPoolConfig threadPoolConfig = ThreadPoolConfig.builder().build();
+        HttpServer httpServer = new HttpServer(serverConfig, threadPoolConfig, keepAliveConfig, router);
+
+        Thread serverThread = new Thread(() -> {
+            try { httpServer.start(); } catch (IOException ignored) {}
+        });
+        serverThread.setDaemon(true);
+        serverThread.start();
+
+        return httpServer;
     }
 }
