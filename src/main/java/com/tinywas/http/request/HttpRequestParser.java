@@ -16,9 +16,7 @@ public class HttpRequestParser {
     private static final int MAX_LINE_LENGTH = 8 * 1024;
     private static final int MAX_BODY_SIZE = 10 * 1024 * 1024;
 
-    public HttpRequest parse(InputStream inputStream) throws IOException {
-        BufferedInputStream in = new BufferedInputStream(inputStream);
-
+    public HttpRequest parse(BufferedInputStream in) throws IOException {
         // 1. 요청 라인 파싱
         String requestLine = readLine(in);
         if (requestLine == null || requestLine.isBlank()) {

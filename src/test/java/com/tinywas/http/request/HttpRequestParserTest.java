@@ -7,9 +7,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -24,8 +24,8 @@ class HttpRequestParserTest {
         parser = new HttpRequestParser();
     }
 
-    private InputStream toInputStream(String raw) {
-        return new ByteArrayInputStream(raw.getBytes(StandardCharsets.UTF_8));
+    private BufferedInputStream toBufferedInputStream(String raw) {
+        return new BufferedInputStream(new ByteArrayInputStream(raw.getBytes(StandardCharsets.UTF_8)));
     }
 
     @Test
@@ -35,7 +35,7 @@ class HttpRequestParserTest {
                 "Host: localhost:8080\r\n" +
                 "\r\n";
 
-        HttpRequest request = parser.parse(toInputStream(raw));
+        HttpRequest request = parser.parse(toBufferedInputStream(raw));
 
         assertAll(
                 () -> assertEquals(HttpMethod.GET, request.getMethod()),
@@ -55,7 +55,7 @@ class HttpRequestParserTest {
                 "\r\n" +
                 body;
 
-        HttpRequest request = parser.parse(toInputStream(raw));
+        HttpRequest request = parser.parse(toBufferedInputStream(raw));
 
         assertAll(
                 () -> assertEquals(HttpMethod.POST, request.getMethod()),
@@ -68,7 +68,7 @@ class HttpRequestParserTest {
     void throwExceptionWhenRequestLineIsEmpty() {
         String raw = "\r\n";
         assertThrows(BadRequestException.class,
-                () -> parser.parse(toInputStream(raw)));
+                () -> parser.parse(toBufferedInputStream(raw)));
     }
 
     @Test
@@ -76,7 +76,7 @@ class HttpRequestParserTest {
     void throwExceptionWhenRequestLineIsInvalid() {
         String raw = "GET /index.html\r\n\r\n";
         assertThrows(BadRequestException.class,
-                () -> parser.parse(toInputStream(raw)));
+                () -> parser.parse(toBufferedInputStream(raw)));
     }
 
     @Test
@@ -86,7 +86,7 @@ class HttpRequestParserTest {
                 "InvalidHeader\r\n" +
                 "\r\n";
         assertThrows(BadRequestException.class,
-                () -> parser.parse(toInputStream(raw)));
+                () -> parser.parse(toBufferedInputStream(raw)));
     }
 
     @Test
@@ -96,7 +96,7 @@ class HttpRequestParserTest {
                 "Content-Type: text/html\r\n" +
                 "\r\n";
 
-        HttpRequest request = parser.parse(toInputStream(raw));
+        HttpRequest request = parser.parse(toBufferedInputStream(raw));
 
         assertEquals("text/html", request.getHeader("content-type"));
     }
@@ -112,7 +112,7 @@ class HttpRequestParserTest {
                 "Content-Length: " + bodyBytes.length + "\r\n" +
                 "\r\n" + body;
 
-        HttpRequest request = parser.parse(toInputStream(raw));
+        HttpRequest request = parser.parse(toBufferedInputStream(raw));
 
         assertEquals(body, request.getBody());
     }
@@ -121,20 +121,20 @@ class HttpRequestParserTest {
     @DisplayName("Content-Length가 숫자가 아니면 BadRequestException을 던진다")
     void throwExceptionWhenContentLengthIsNotNumber() {
         String raw = "POST /submit HTTP/1.1\r\nHost: localhost\r\nContent-Length: abc\r\n\r\n";
-        assertThrows(BadRequestException.class, () -> parser.parse(toInputStream(raw)));
+        assertThrows(BadRequestException.class, () -> parser.parse(toBufferedInputStream(raw)));
     }
 
     @Test
     @DisplayName("Content-Length가 음수이면 BadRequestException을 던진다")
     void throwExceptionWhenContentLengthIsNegative() {
         String raw = "POST /submit HTTP/1.1\r\nHost: localhost\r\nContent-Length: -5\r\n\r\n";
-        assertThrows(BadRequestException.class, () -> parser.parse(toInputStream(raw)));
+        assertThrows(BadRequestException.class, () -> parser.parse(toBufferedInputStream(raw)));
     }
 
     @Test
     @DisplayName("선언된 Content-Length보다 적은 데이터가 오면 BadRequestException을 던진다")
     void throwExceptionWhenBodyIsShorterThanContentLength() {
         String raw = "POST /submit HTTP/1.1\r\nHost: localhost\r\nContent-Length: 100\r\n\r\nshort";
-        assertThrows(BadRequestException.class, () -> parser.parse(toInputStream(raw)));
+        assertThrows(BadRequestException.class, () -> parser.parse(toBufferedInputStream(raw)));
     }
 }
