@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit;
 public class HttpServer {
     private final ServerConfig config;
     private final ThreadPoolConfig threadPoolConfig;
+    private final KeepAliveConfig keepAliveConfig;
     private final Router router;
 
     private volatile boolean running = false;
@@ -23,9 +24,11 @@ public class HttpServer {
 
     private final CountDownLatch startedSignal = new CountDownLatch(1);
 
-    public HttpServer(ServerConfig config, ThreadPoolConfig threadPoolConfig, Router router) {
+    public HttpServer(ServerConfig config, ThreadPoolConfig threadPoolConfig,
+                      KeepAliveConfig keepAliveConfig, Router router) {
         this.config = config;
         this.threadPoolConfig = threadPoolConfig;
+        this.keepAliveConfig = keepAliveConfig;
         this.router = router;
     }
 
@@ -41,7 +44,7 @@ public class HttpServer {
             while (running) {
                 try {
                     Socket socket = ss.accept();
-                    executor.submit(new HttpConnection(socket, router));
+                    executor.submit(new HttpConnection(socket, router, keepAliveConfig));
                 } catch (SocketException e) {
                     if (!running) break;
                     throw e;
